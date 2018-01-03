@@ -1,5 +1,17 @@
-[Dd]ebug/
-[Rr]elease/
+# General
+.DS_Store
+.idea
+*.cbp
+*.atsln
+*.xml
+*.cproj
+*.out
 .vs/
 
-.DS_Store
+# CMake
+cmake-build-debug/
+CMakeFiles
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+build/
