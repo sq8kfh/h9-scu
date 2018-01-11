@@ -11,27 +11,35 @@ uint16_t power_switch_node_id = H9NODE_TYPE_POWER_SWITCH;    // reg #13
 
 uint8_t tx_antenna = 0;
 uint8_t rx_antenna = 0;
+uint8_t antenna_split = 0;
 uint8_t active_antenna = 1;
 
 uint8_t power_switch = 0;
 
-volatile uint8_t tx_inh=0;
-
 #define LED_PORT PORTD
 #define LED_RED_PIN PD0
 
+#define PTT_INH_PORT PORTC
+#define PTT_INH_PIN PC1
+
 void set_tx_inh(void) {
-    cli();
-    tx_inh = 1;
-    sei();
+    PTT_INH_PORT |= (1 << PTT_INH_PIN);
     LED_PORT |= (1 << LED_RED_PIN);
 }
 
 void cli_tx_inh(void) {
-    cli();
-    tx_inh = 0;
-    sei();
-    LED_PORT &= ~(1 << LED_RED_PIN);
+    if (active_antenna == 1 && tx_antenna) {
+        PTT_INH_PORT &= ~(1 << PTT_INH_PIN);
+        LED_PORT &= ~(1 << LED_RED_PIN);
+    }
+}
+
+void logic_init(void) {
+    DDRC &= ~(1 << PC0); //ptt_in
+    PORTC |= (1 << PC0);
+
+    set_tx_inh();
+    PORTD |= (1 << PD7); //~PTT_BP RELAY
 }
 
 void check_power_switch(void) {
@@ -78,6 +86,18 @@ void switch_anttena(uint8_t ant) {
     CAN_put_msg(&tmp);
 }
 
+void switch_rxtx(void) {
+    active_antenna = active_antenna == 1 ? 2 : 1;
+    if (active_antenna == 1) {
+        switch_anttena(tx_antenna);
+        antenna_split = 0;
+    }
+    else if (active_antenna == 2) {
+        switch_anttena(rx_antenna);
+        antenna_split = 1;
+    }
+}
+
 void check_antenna(void) {
     h9msg_t tmp;
     CAN_init_new_msg(&tmp);
@@ -107,5 +127,29 @@ void process_antenna_switch_msg(h9msg_t *cm) {
     }
     else if (cm->source_id == switch_node_id && cm->type == H9MSG_TYPE_NODE_TURNED_ON) {
         check_antenna();
+    }
+}
+
+void process_ptt(void) {
+    static uint8_t ptt_key_lock = 0;
+    if (ptt_key_lock < 100 && (PINC & (1 << PC0))) {
+        ++ptt_key_lock;
+    }
+    else if (ptt_key_lock == 100 && (PINC & (1 << PC0))) {
+        ++ptt_key_lock;
+        if (antenna_split == 1 && active_antenna == 2) {
+            switch_anttena(tx_antenna);
+            active_antenna = 1;
+        }
+    }
+    else if (100 < ptt_key_lock && ptt_key_lock < 200 && !(PINC & (1 << PC0))) {
+        ++ptt_key_lock;
+    }
+    else if (ptt_key_lock == 200 && !(PINC & (1 << PC0))) {
+        if (antenna_split == 1 && active_antenna == 1) {
+            switch_anttena(rx_antenna);
+            active_antenna = 2;
+        }
+        ptt_key_lock = 0;
     }
 }

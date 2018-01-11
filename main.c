@@ -124,7 +124,7 @@ void main_screen_refresh(void) {
         buf[0] = '\x7e';
     LCD_GoTo(0, 1);
     LCD_WriteText(buf);
-    if (active_antenna == 2) {
+    if (antenna_split == 1) {
         LCD_GoTo(15, 1);
         LCD_WriteData('\x02'); //rxtx
     }
@@ -164,11 +164,7 @@ void ui(void) {
             menu_screen_refresh();
         }
         else if (kb_tmp & KB_OK_BUTTON) {
-            active_antenna = active_antenna == 1 ? 2 : 1;
-            if (active_antenna == 1)
-                switch_anttena(tx_antenna);
-            else if (active_antenna == 2)
-                switch_anttena(rx_antenna);
+            switch_rxtx();
 		}
         else if (kb_tmp & KB_ESC_BUTTON) { //esc - dissable all (set to 0)
             switch_anttena(0);
@@ -253,9 +249,8 @@ int main(void) {
 	CAN_set_mob_for_remote_node2(power_switch_node_id);
 	sei();
 
-    PORTD |= (1 << PD7); //~PTT_BP RELAY
-
 	_delay_ms(100);
+    logic_init();
 	CAN_send_turned_on_broadcast();
 	
 	if (flags & FLAG_BACKLIGHF)
@@ -265,7 +260,6 @@ int main(void) {
 
     check_antenna();
     check_power_switch();
-	//LCD_Clear();
 	
     while (1) {
 		h9msg_t cm;
@@ -348,6 +342,7 @@ int main(void) {
 				}
 			}
 		}
+        process_ptt();
 		ui();
 	}
 }
