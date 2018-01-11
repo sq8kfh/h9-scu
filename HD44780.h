@@ -1,12 +1,12 @@
 //-------------------------------------------------------------------------------------------------
-// Wyœwietlacz alfanumeryczny ze sterownikiem HD44780
-// Sterowanie w trybie 4-bitowym bez odczytu flagi zajêtoœci
-// z dowolnym przypisaniem sygna³ów steruj¹cych
+// WyÅ›wietlacz alfanumeryczny ze sterownikiem HD44780
+// Sterowanie w trybie 4-bitowym bez odczytu flagi zajï¿½toï¿½ci
+// z dowolnym przypisaniem sygnaï¿½ï¿½w sterujï¿½cych
 // Plik : HD44780.h	
 // Mikrokontroler : Atmel AVR
 // Kompilator : avr-gcc
-// Autor : Rados³aw Kwiecieñ
-// ród³o : http://radzio.dxp.pl/hd44780/
+// Autor : Radosï¿½aw Kwiecieï¿½
+// ï¿½rï¿½dï¿½o : http://radzio.dxp.pl/hd44780/
 // Data : 24.03.2007
 //-------------------------------------------------------------------------------------------------
 
@@ -15,8 +15,8 @@
 
 //-------------------------------------------------------------------------------------------------
 //
-// Konfiguracja sygna³ów steruj¹cych wyœwietlaczem.
-// Mo¿na zmieniæ stosownie do potrzeb.
+// Konfiguracja sygnaï¿½ï¿½w sterujï¿½cych wyï¿½wietlaczem.
+// Moï¿½na zmieniï¿½ stosownie do potrzeb.
 //
 //-------------------------------------------------------------------------------------------------
 #define LCD_RS_DIR		      DDRB

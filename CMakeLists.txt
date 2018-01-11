@@ -7,7 +7,7 @@ set(MMCU atmega64m1)
 set(FREQ 16000000)
 set(BOOTSTART 0xf800) #in bytes
 
-set(SOURCE_FILES main.c keyboard.c keyboard.h HD44780.c HD44780.h can/can.c can/common.c can/common.h)
+set(SOURCE_FILES main.c keyboard.c keyboard.h HD44780.c HD44780.h can/can.c can/common.c can/common.h can/h9msg.h can/h9node.h logic.c logic.h can/h9node.h)
 
 if(BOOTSTART)
     add_subdirectory(can)

@@ -12,58 +12,12 @@
 #include "HD44780.h"
 #include "keyboard.h"
 #include "can/can.h"
+#include "can/h9node.h"
+#include "logic.h"
 
 #define FLAG_BACKLIGHF 1
 
 uint8_t flags = FLAG_BACKLIGHF;	// reg #10
-uint16_t switch_node_id = 1;    // reg #11
-uint8_t number_of_antennas = 8; // reg #12
-uint16_t power_switch_node_id = 2;    // reg #13
-
-uint8_t selected_antenna = 0;
-uint8_t power_switch = 0;
-
-void send_switch_request(uint8_t ant) {
-	h9msg_t tmp;
-	CAN_init_new_msg(&tmp);
-	tmp.type = H9_TYPE_SET_REG;
-	tmp.destination_id = switch_node_id;
-	tmp.dlc = 2;
-	tmp.data[0] = 0x0a;
-	tmp.data[1] = ant;
-	CAN_put_msg(&tmp);
-}
-
-void get_selected_antenna(void) {
-	h9msg_t tmp;
-	CAN_init_new_msg(&tmp);
-	tmp.type = H9_TYPE_GET_REG;
-	tmp.destination_id = switch_node_id;
-	tmp.dlc = 1;
-	tmp.data[0] = 0x0a;
-	CAN_put_msg(&tmp);
-}
-
-void send_power_switch_request(uint8_t on) {
-	h9msg_t tmp;
-	CAN_init_new_msg(&tmp);
-	tmp.type = H9_TYPE_SET_REG;
-	tmp.destination_id = power_switch_node_id;
-	tmp.dlc = 2;
-	tmp.data[0] = 0x0a;
-	tmp.data[1] = on;
-	CAN_put_msg(&tmp);
-}
-
-void get_power_switch(void) {
-	h9msg_t tmp;
-	CAN_init_new_msg(&tmp);
-	tmp.type = H9_TYPE_GET_REG;
-	tmp.destination_id = power_switch_node_id;
-	tmp.dlc = 1;
-	tmp.data[0] = 0x0a;
-	CAN_put_msg(&tmp);
-}
 
 /*
  * UI
@@ -77,9 +31,9 @@ int8_t selected_menu_item = 0;
 
 void backlight_print(void) {
 	if (flags & FLAG_BACKLIGHF)
-		LCD_WriteText(" ON             ");
+		LCD_WriteText(" ON");
 	else
-		LCD_WriteText(" OFF            ");
+		LCD_WriteText(" OFF");
 }
 
 void backlight_change(uint8_t kbr) {
@@ -93,53 +47,42 @@ void backlight_change(uint8_t kbr) {
 }
 
 void switch_id_print(void) {
-	char buf[17] = "                ";
-	int n = sprintf(buf, " 0x%X", switch_node_id);
-	buf[n] = ' ';
+	char buf[17];
+	snprintf(buf, 17, " %u", switch_node_id);
 	LCD_WriteText(buf);
 }
 
 void switch_id_change(uint8_t kbr) {
 	if (kbr & KB_CW_BUTTON) {
 		++switch_node_id;
-		switch_node_id &= ((1 << H9_DESTINATION_ID_BIT_LENGTH) - 1);
-		if (switch_node_id == ((1 << H9_DESTINATION_ID_BIT_LENGTH) - 1))
-			switch_node_id = 1;
+		switch_node_id = H9NODE_TYPE_ANTENNA_SWITCH | (switch_node_id & H9NODE_MASK_ANTENNA_SWITCH);
 	}
 	else if (kbr & KB_CCW_BUTTON) {
 		--switch_node_id;
-		switch_node_id &= ((1 << H9_DESTINATION_ID_BIT_LENGTH) - 1);
-		if (switch_node_id == 0)
-			switch_node_id = (1 << H9_DESTINATION_ID_BIT_LENGTH) - 2;
+        switch_node_id = H9NODE_TYPE_ANTENNA_SWITCH | (switch_node_id & H9NODE_MASK_ANTENNA_SWITCH);
 	}
 }
 
 void power_switch_id_print(void) {
-	char buf[17] = "                ";
-	int n = sprintf(buf, " 0x%X", power_switch_node_id);
-	buf[n] = ' ';
+	char buf[17];
+	snprintf(buf, 17, " %u", power_switch_node_id);
 	LCD_WriteText(buf);
 }
 
 void power_switch_id_change(uint8_t kbr) {
 	if (kbr & KB_CW_BUTTON) {
 		++power_switch_node_id;
-		power_switch_node_id &= ((1 << H9_DESTINATION_ID_BIT_LENGTH) - 1);
-		if (power_switch_node_id == ((1 << H9_DESTINATION_ID_BIT_LENGTH) - 1))
-		power_switch_node_id = 1;
+		power_switch_node_id = H9NODE_TYPE_POWER_SWITCH | (power_switch_node_id & H9NODE_MASK_POWER_SWITCH);
 	}
 	else if (kbr & KB_CCW_BUTTON) {
 		--power_switch_node_id;
-		power_switch_node_id &= ((1 << H9_DESTINATION_ID_BIT_LENGTH) - 1);
-		if (power_switch_node_id == 0)
-		power_switch_node_id = (1 << H9_DESTINATION_ID_BIT_LENGTH) - 2;
+        power_switch_node_id = H9NODE_TYPE_POWER_SWITCH | (power_switch_node_id & H9NODE_MASK_POWER_SWITCH);
 	}
 }
 
 void num_of_ant_print(void) {
-	char buf[17] = "                ";
-	int n = sprintf(buf, " %d", number_of_antennas);
-	buf[n] = ' ';
+	char buf[17];
+	snprintf(buf, 17, " %d", number_of_antennas);
 	LCD_WriteText(buf);
 }
 
@@ -159,23 +102,32 @@ struct {
 	void (*value_print)(void);
 	void (*change_value)(uint8_t kbr);
 } menu_items[] = {
-	{"BACKLIGHT:      ", backlight_print, backlight_change},
-	{"SWITCH ID:      ", switch_id_print, switch_id_change},
+	{"BACKLIGHT:",       backlight_print, backlight_change},
+	{"SWITCH ID:",       switch_id_print, switch_id_change},
 	{"NUM OF ANTENNAS:", num_of_ant_print, num_of_ant_change},
 	{"POWER SWITCH ID:", power_switch_id_print, power_switch_id_change}
 };
 
 void main_screen_refresh(void) {
-	char buf[17] = "                ";
-	int n = sprintf(buf, "Antenna: %d", selected_antenna);
-	buf[n] = ' ';
-	LCD_Home();
-	LCD_WriteText(buf);
-	n = sprintf(buf, "Power switch:%s", power_switch ? " ON" : "OFF");
-	buf[16] = '\0';
-	LCD_GoTo(0, 1);
-	LCD_WriteText(buf);
-	LCD_GoTo(0, 1);
+    char buf[17];
+    snprintf(buf, 17, " TX Ant: %d", tx_antenna);
+    if (active_antenna == 1)
+        buf[0] = '\x7e';
+    LCD_Home();
+    LCD_WriteText(buf);
+    if (power_switch) {
+        LCD_GoTo(15, 0);
+        LCD_WriteData('\x01'); //power
+    }
+    snprintf(buf, 17, " RX Ant: %d", rx_antenna);
+    if (active_antenna == 2)
+        buf[0] = '\x7e';
+    LCD_GoTo(0, 1);
+    LCD_WriteText(buf);
+    if (active_antenna == 2) {
+        LCD_GoTo(15, 1);
+        LCD_WriteData('\x02'); //rxtx
+    }
 }
 
 void menu_screen_refresh(void) {
@@ -183,41 +135,66 @@ void menu_screen_refresh(void) {
 	LCD_WriteText(menu_items[selected_menu_item].item);
 	LCD_GoTo(0, 1);
 	menu_items[selected_menu_item].value_print();
-	LCD_GoTo(0, 1);
+    LCD_GoTo(0, 1);
 }
 
 void ui(void) {
 	uint8_t kb_tmp = KB_get();
-	if (screen == SCREEN_MAIN) //main screen
-	{
-		uint8_t ant = selected_antenna;
-		if (kb_tmp & KB_CW_BUTTON) {
+	if (screen == SCREEN_MAIN) { //main screen
+        static uint32_t esc_counter = 0;
+        static uint32_t ok_counter = 0;
+		int8_t ant = (active_antenna == 1) ? tx_antenna : rx_antenna;
+		if (kb_tmp & KB_CW_BUTTON && active_antenna) {
 			++ant;
 			if (ant > number_of_antennas)
 				ant = 1;
-			send_switch_request(ant);
+            switch_anttena((uint8_t)ant);
 		}
-		else if (kb_tmp & KB_CCW_BUTTON) {
+		else if (kb_tmp & KB_CCW_BUTTON && active_antenna) {
 			--ant;
-			if (ant == 0)
+			if (ant <= 0)
 				ant = number_of_antennas;
-			send_switch_request(ant);
+            switch_anttena((uint8_t)ant);
 		}
-		
-		if (kb_tmp & KB_OK_BUTTON) {
-			send_power_switch_request(!power_switch);
+
+        if (kb_tmp == (KB_OK_BUTTON | KB_ESC_BUTTON_FLAG)) {
+            KB_drop_key();
+            screen = SCREEN_MENU;
+            LCD_Clear();
+            menu_screen_refresh();
+        }
+        else if (kb_tmp & KB_OK_BUTTON) {
+            active_antenna = active_antenna == 1 ? 2 : 1;
+            if (active_antenna == 1)
+                switch_anttena(tx_antenna);
+            else if (active_antenna == 2)
+                switch_anttena(rx_antenna);
 		}
-		
-		if (kb_tmp & KB_ESC_BUTTON) { //esc - dissable all (set to 0)
-			send_switch_request(0);
+        else if (kb_tmp & KB_ESC_BUTTON) { //esc - dissable all (set to 0)
+            switch_anttena(0);
 		}
-		
-		if ((kb_tmp & (KB_OK_BUTTON | KB_ESC_BUTTON_FLAG)) == (KB_OK_BUTTON | KB_ESC_BUTTON_FLAG)) {
-			KB_drop_key();
-			screen = SCREEN_MENU;
-			LCD_Clear();
-			menu_screen_refresh();
-		}
+        else {
+            if (kb_tmp & KB_OK_BUTTON_FLAG) {
+                ok_counter++;
+                if (ok_counter > 75000) {
+                    KB_drop_key();
+                    power_switch_on();
+                    ok_counter = 0;
+                }
+            } else {
+                ok_counter = 0;
+            }
+            if (kb_tmp & KB_ESC_BUTTON_FLAG) {
+                esc_counter++;
+                if (esc_counter > 75000) {
+                    KB_drop_key();
+                    power_switch_off();
+                    esc_counter = 0;
+                }
+            } else {
+                esc_counter = 0;
+            }
+        }
 	}
 	else if (screen == SCREEN_MENU) { //settings menu
 		if (kb_tmp & KB_ESC_BUTTON) { //esc
@@ -234,13 +211,13 @@ void ui(void) {
 		if (kb_tmp & KB_CW_BUTTON) {
 			++selected_menu_item;
 			if (selected_menu_item >= MENU_ITEMS_COUNT)
-			selected_menu_item = 0;
+			    selected_menu_item = 0;
 			menu_screen_refresh();
 		}
 		else if (kb_tmp & KB_CCW_BUTTON) {
 			--selected_menu_item;
 			if (selected_menu_item < 0)
-			selected_menu_item = MENU_ITEMS_COUNT-1;
+			    selected_menu_item = MENU_ITEMS_COUNT-1;
 			menu_screen_refresh();
 		}
 	}
@@ -272,11 +249,12 @@ int main(void) {
 	KB_Initalize();
 	
 	CAN_init();
-	//CAN_set_mob(0, 0, H9_TYPE_REG_EXTERNALLY_CHANGED, ((1<<H9_TYPE_BIT_LENGTH)-1) ^ 0x03, 0, 0, switch_node_id, (1<<H9_SOURCE_ID_BIT_LENGTH)-1);
 	CAN_set_mob_for_remote_node1(switch_node_id);
 	CAN_set_mob_for_remote_node2(power_switch_node_id);
 	sei();
-	
+
+    PORTD |= (1 << PD7); //~PTT_BP RELAY
+
 	_delay_ms(100);
 	CAN_send_turned_on_broadcast();
 	
@@ -284,37 +262,24 @@ int main(void) {
 		LCD_BacklightOn();
 	else
 		LCD_BacklightOff();
-	
-	get_selected_antenna();
-	get_power_switch();
-	LCD_Clear();
+
+    check_antenna();
+    check_power_switch();
+	//LCD_Clear();
 	
     while (1) {
 		h9msg_t cm;
 		if (CAN_get_msg(&cm)) {
-			if (cm.source_id == switch_node_id && 
-			   cm.dlc > 1 &&
-			   cm.data[0] == 0x0a &&
-			   (cm.type & 0xFC) == H9_TYPE_REG_EXTERNALLY_CHANGED) { // match: H9_TYPE_REG: EXTERNALLY_CHANGED INTERNALLY_CHANGED VALUE_BROADCAST VALUE
-				selected_antenna = cm.data[1];
+			if (cm.source_id == switch_node_id) {
+                process_antenna_switch_msg(&cm);
 				main_screen_refresh();
 			}
-			else if (cm.source_id == switch_node_id &&
-			         cm.type == H9_TYPE_NODE_TURNED_ON) {
-				get_selected_antenna();
+			else if (cm.source_id == power_switch_node_id) {
+                process_power_switch_msg(&cm);
+                main_screen_refresh();
 			}
-			else if (cm.source_id == power_switch_node_id &&
-				cm.dlc > 1 &&
-				cm.data[0] == 0x0a &&
-				(cm.type & 0xFC) == H9_TYPE_REG_EXTERNALLY_CHANGED) { // match: H9_TYPE_REG: EXTERNALLY_CHANGED INTERNALLY_CHANGED VALUE_BROADCAST VALUE
-					power_switch = cm.data[1];
-					main_screen_refresh();
-			}
-			else if (cm.source_id == power_switch_node_id && cm.type == H9_TYPE_NODE_TURNED_ON) {
-				get_power_switch();
-			}
-			else if (cm.type == H9_TYPE_GET_REG && 
-			         (cm.destination_id == can_node_id || cm.destination_id == H9_BROADCAST_ID)) {
+			else if (cm.type == H9MSG_TYPE_GET_REG &&
+			         (cm.destination_id == can_node_id || cm.destination_id == H9MSG_BROADCAST_ID)) {
 				h9msg_t cm_res;
 				CAN_init_response_msg(&cm, &cm_res);
 				cm_res.data[0] = cm.data[0];
@@ -343,7 +308,7 @@ int main(void) {
 						break;
 				}
 			}
-			else if (cm.type == H9_TYPE_SET_REG && cm.destination_id == can_node_id) {
+			else if (cm.type == H9MSG_TYPE_SET_REG && cm.destination_id == can_node_id) {
 				h9msg_t cm_res;
 				CAN_init_response_msg(&cm, &cm_res);
 				cm_res.data[0] = cm.data[0];
@@ -360,7 +325,7 @@ int main(void) {
 						CAN_put_msg(&cm_res);
 						break;
 					case 11:
-						switch_node_id = ((cm_res.data[1] << 8) | cm_res.data[0]) & ((1<<H9_DESTINATION_ID_BIT_LENGTH) - 1);
+						switch_node_id = ((cm_res.data[1] << 8) | cm_res.data[0]) & ((1<<H9MSG_DESTINATION_ID_BIT_LENGTH) - 1);
 						
 						cm_res.dlc = 3;
 						cm_res.data[1] = (switch_node_id >> 8) & 0x01;
@@ -373,7 +338,7 @@ int main(void) {
 						cm_res.data[1] = number_of_antennas;
 						CAN_put_msg(&cm_res);
 					case 13:
-						power_switch_node_id = ((cm_res.data[1] << 8) | cm_res.data[0]) & ((1<<H9_DESTINATION_ID_BIT_LENGTH) - 1);
+						power_switch_node_id = ((cm_res.data[1] << 8) | cm_res.data[0]) & ((1<<H9MSG_DESTINATION_ID_BIT_LENGTH) - 1);
 						
 						cm_res.dlc = 3;
 						cm_res.data[1] = (power_switch_node_id >> 8) & 0x01;
