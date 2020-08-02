@@ -12,7 +12,6 @@
 #include "HD44780.h"
 #include "keyboard.h"
 #include "can/can.h"
-#include "can/h9node.h"
 #include "logic.h"
 
 #define FLAG_BACKLIGHF 1
@@ -55,11 +54,11 @@ void switch_id_print(void) {
 void switch_id_change(uint8_t kbr) {
 	if (kbr & KB_CW_BUTTON) {
 		++switch_node_id;
-		switch_node_id = H9NODE_TYPE_ANTENNA_SWITCH | (switch_node_id & H9NODE_MASK_ANTENNA_SWITCH);
+		switch_node_id = switch_node_id & (H9MSG_BROADCAST_ID);
 	}
 	else if (kbr & KB_CCW_BUTTON) {
 		--switch_node_id;
-        switch_node_id = H9NODE_TYPE_ANTENNA_SWITCH | (switch_node_id & H9NODE_MASK_ANTENNA_SWITCH);
+        switch_node_id = switch_node_id & (H9MSG_BROADCAST_ID);
 	}
 }
 
@@ -72,11 +71,11 @@ void power_switch_id_print(void) {
 void power_switch_id_change(uint8_t kbr) {
 	if (kbr & KB_CW_BUTTON) {
 		++power_switch_node_id;
-		power_switch_node_id = H9NODE_TYPE_POWER_SWITCH | (power_switch_node_id & H9NODE_MASK_POWER_SWITCH);
+		power_switch_node_id = power_switch_node_id & (H9MSG_BROADCAST_ID);
 	}
 	else if (kbr & KB_CCW_BUTTON) {
 		--power_switch_node_id;
-        power_switch_node_id = H9NODE_TYPE_POWER_SWITCH | (power_switch_node_id & H9NODE_MASK_POWER_SWITCH);
+        power_switch_node_id = power_switch_node_id & (H9MSG_BROADCAST_ID);
 	}
 }
 
