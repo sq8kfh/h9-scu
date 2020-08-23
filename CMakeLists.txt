@@ -1,8 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
-cmake_policy(SET CMP0048 NEW)
 
-project(h9scu VERSION 1.0)
-set(NODE_TYPE 2)
+project(h9asc VERSION 0.0)
+set(NODE_TYPE 3)
 set(MMCU atmega64m1)
 set(FREQ 16000000)
 

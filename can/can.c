@@ -1,5 +1,5 @@
 /*
- * h9avr-can
+ * h9avr-can v0.1
  *
  * Created by SQ8KFH on 2017-08-07.
  *
@@ -34,7 +34,7 @@ volatile uint8_t can_rx_buf_top = 0;
 volatile uint8_t can_rx_buf_bottom = 0;
 
 volatile uint16_t can_node_id;
-uint16_t ee_node_id EEMEM = 0;
+uint16_t ee_node_id __attribute__((section(".eepromfixed"))) = 0;
 
 
 static void read_node_id(void);
@@ -82,9 +82,7 @@ ISR(CAN_INT_vect)
 
 
 uint8_t process_msg(h9msg_t *cm) {
-    if (cm->type & H9MSG_TYPE_GROUP_2_AND_3 //H9MSG_TYPE_GROUP_2 || H9MSG_TYPE_GROUP_3
-        && (cm->destination_id == can_node_id || cm->destination_id == H9MSG_BROADCAST_ID)) {
-
+    if ((cm->type & H9MSG_TYPE_GROUP_MASK) == H9MSG_TYPE_GROUP_2 && cm->destination_id == can_node_id) {
         if (cm->type == H9MSG_TYPE_SET_REG && cm->dlc > 1) {
             if (cm->data[0] >= 10)
                 return 1;
@@ -105,6 +103,7 @@ uint8_t process_msg(h9msg_t *cm) {
                 cm_res.dlc = 1;
             }
             CAN_put_msg(&cm_res);
+            return 0;
         }
         else if (cm->type == H9MSG_TYPE_GET_REG && cm->dlc == 1) {
             if (cm->data[0] >= 10)
@@ -135,22 +134,10 @@ uint8_t process_msg(h9msg_t *cm) {
                     cm_res.dlc = 1;
             }
             CAN_put_msg(&cm_res);
+            return 0;
         }
-        else if (cm->type == H9MSG_TYPE_DISCOVERY && cm->dlc == 0) {
-            h9msg_t cm_res;
-            CAN_init_response_msg(cm, &cm_res);
-            cm_res.dlc = 2;
-            cm_res.data[0] = (NODE_TYPE >> 8) & 0xff;
-            cm_res.data[1] = (NODE_TYPE) & 0xff;
-            CAN_put_msg(&cm_res);
-        }
-        else if (cm->type == H9MSG_TYPE_NODE_RESET && cm->dlc == 0) {
-            cli();
-            do {
-                wdt_enable(WDTO_15MS);
-                for(;;) {
-                }
-            } while(0);
+        else if (cm->type == H9MSG_TYPE_GET_BULK_DATA && cm->dlc == 1) {
+            return 1;
         }
         else if (cm->type == H9MSG_TYPE_NODE_UPGRADE && cm->dlc == 0) {
 #ifdef BOOTSTART
@@ -166,18 +153,49 @@ uint8_t process_msg(h9msg_t *cm) {
             CAN_put_msg(&cm_res);
 #endif //BOOTSTART
         }
-        else {
+        else if (cm->type == H9MSG_TYPE_SET_BIT && cm->dlc == 2) {
+            return 1;
+        }
+        else if (cm->type == H9MSG_TYPE_CLEAR_BIT && cm->dlc == 2) {
+            return 1;
+        }
+        else if (cm->type == H9MSG_TYPE_TOGGLE_BIT && cm->dlc == 2) {
+            return 1;
+        }
+    }
+    else if ((cm->type & H9MSG_TYPE_GROUP_MASK) == H9MSG_TYPE_GROUP_3
+             && (cm->destination_id == can_node_id || cm->destination_id == H9MSG_BROADCAST_ID)) {
+        if (cm->type == H9MSG_TYPE_DISCOVERY && cm->dlc == 0) {
             h9msg_t cm_res;
             CAN_init_response_msg(cm, &cm_res);
-            cm_res.type = H9MSG_TYPE_ERROR;
-            cm_res.data[0] = H9MSG_ERROR_INVALID_MSG;
-            cm_res.dlc = 1;
+            cm_res.dlc = 4;
+            cm_res.data[0] = (NODE_TYPE >> 8) & 0xff;
+            cm_res.data[1] = (NODE_TYPE) & 0xff;
+            cm_res.data[2] = VERSION_MAJOR;
+            cm_res.data[3] = VERSION_MINOR;
             CAN_put_msg(&cm_res);
+            return 0;
         }
-
-        return 0;
+        else if (cm->type == H9MSG_TYPE_NODE_RESET && cm->dlc == 0) {
+            cli();
+            do {
+                wdt_enable(WDTO_15MS);
+                for(;;) {
+                }
+            } while(0);
+        }
     }
-    return 1;
+    else if ((cm->type & H9MSG_TYPE_GROUP_MASK) == H9MSG_TYPE_GROUP_1) {
+        return 2;
+    }
+
+    h9msg_t cm_res;
+    CAN_init_response_msg(cm, &cm_res);
+    cm_res.type = H9MSG_TYPE_ERROR;
+    cm_res.data[0] = H9MSG_ERROR_INVALID_MSG;
+    cm_res.dlc = 1;
+    CAN_put_msg(&cm_res);
+    return 0;
 }
 
 
@@ -205,7 +223,7 @@ void CAN_init(void) {
         CANSTMOB = 0x00;             // Clear mob status register;
     }
 
-    //select mob 2 for broadcast with type form 3rd group
+    //select mob 1 for broadcast with type form 3rd group
     CANPAGE = 0x01 << MOBNB0;
     set_CAN_id(0, H9MSG_TYPE_GROUP_3, 0, H9MSG_BROADCAST_ID, 0);
     set_CAN_id_mask(0, H9MSG_TYPE_GROUP_MASK, 0, (1<<H9MSG_DESTINATION_ID_BIT_LENGTH)-1, 0);
@@ -233,9 +251,11 @@ void CAN_send_turned_on_broadcast(void) {
 
     cm.type = H9MSG_TYPE_NODE_TURNED_ON;
     cm.destination_id = H9MSG_BROADCAST_ID;
-    cm.dlc = 2;
+    cm.dlc = 4;
     cm.data[0] = (NODE_TYPE >> 8) & 0xff;
     cm.data[1] = (NODE_TYPE) & 0xff;
+    cm.data[2] = VERSION_MAJOR;
+    cm.data[3] = VERSION_MINOR;
     CAN_put_msg(&cm);
 }
 
@@ -333,13 +353,18 @@ void CAN_init_response_msg(const h9msg_t *req, h9msg_t *res) {
             res->type = H9MSG_TYPE_REG_VALUE;
             break;
         case H9MSG_TYPE_SET_REG:
+        case H9MSG_TYPE_SET_BIT:
+        case H9MSG_TYPE_CLEAR_BIT:
+        case H9MSG_TYPE_TOGGLE_BIT:
             res->type = H9MSG_TYPE_REG_EXTERNALLY_CHANGED;
+            break;
+        case H9MSG_TYPE_GET_BULK_DATA:
+            res->type = H9MSG_TYPE_BULK_DATA;
             break;
         case H9MSG_TYPE_DISCOVERY:
             res->type = H9MSG_TYPE_NODE_INFO;
             break;
     }
-    res->seqnum = req->seqnum;
     res->destination_id = req->source_id;
 }
 

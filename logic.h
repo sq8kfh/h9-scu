@@ -1,3 +1,12 @@
+/*
+ * h9asc
+ * Antennas switch controller
+ *
+ * Created by SQ8KFH on 2017-08-07.
+ *
+ * Copyright (C) 2017-2020 Kamil Palkowski. All rights reserved.
+ */
+
 #ifndef _LOGIC_H_
 #define _LOGIC_H_
 
@@ -30,5 +39,10 @@ void process_power_switch_msg(h9msg_t *cm);
 void process_antenna_switch_msg(h9msg_t *cm);
 
 void process_ptt(void);
+
+void save_variables_in_eeprom(void);
+void set_switch_id(uint16_t old_id);
+void set_power_switch_id(uint16_t old_id);
+void set_number_of_antennas(uint8_t old_ant);
 
 #endif //_LOGIC_H_

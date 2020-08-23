@@ -1,8 +1,10 @@
 /*
- * keyboard.c
+ * h9asc
+ * Antennas switch controller
  *
- * Created: 2017-08-07 14:05:55
- *  Author: vb
+ * Created by SQ8KFH on 2017-08-07.
+ *
+ * Copyright (C) 2017-2020 Kamil Palkowski. All rights reserved.
  */ 
 
 #include "keyboard.h"

@@ -1,5 +1,5 @@
 /*
- * h9avr-can
+ * h9avr-can v0.1
  *
  * Created by SQ8KFH on 2017-08-07.
  *
@@ -13,7 +13,6 @@
 #include <avr/eeprom.h>
 #include "h9msg.h"
 
-extern uint16_t ee_node_id EEMEM;
 extern volatile uint16_t can_node_id;
 
 void CAN_init(void);
