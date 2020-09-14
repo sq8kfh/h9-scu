@@ -79,8 +79,8 @@ void logic_init(void) {
         number_of_antennas = 8;
     }
 
-    CAN_set_mob_for_remote_node1(switch_node_id);
-    CAN_set_mob_for_remote_node2(power_switch_node_id);
+    CAN_set_mob_for_remote_node1(switch_node_id, 0);
+    CAN_set_mob_for_remote_node2(power_switch_node_id, 0);
 }
 
 
@@ -220,7 +220,7 @@ void set_switch_id(uint16_t old_id) {
         cli();
         eeprom_write_word(&ee_switch_node_id, switch_node_id);
         sei();
-        CAN_set_mob_for_remote_node1(switch_node_id);
+        CAN_set_mob_for_remote_node1(switch_node_id, 0);
     }
 }
 
@@ -230,7 +230,7 @@ void set_power_switch_id(uint16_t old_id) {
         cli();
         eeprom_write_word(&ee_power_switch_node_id, power_switch_node_id);
         sei();
-        CAN_set_mob_for_remote_node2(power_switch_node_id);
+        CAN_set_mob_for_remote_node2(power_switch_node_id, 0);
     }
 }
 

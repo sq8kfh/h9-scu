@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(h9asc VERSION 0.0)
+project(h9asc VERSION 0.1)
 set(NODE_TYPE 3)
 set(MMCU atmega64m1)
 set(FREQ 16000000)
@@ -16,6 +16,7 @@ endif()
 set(PROGRAMMER jtag3isp)
 
 set(SOURCE_FILES main.c keyboard.c keyboard.h HD44780.c HD44780.h logic.c logic.h can/can.c can/can.h can/h9msg.h)
+set(LINKER_SCRIPT custom_avr5.lds)
 
 if(BOOTSTART)
     add_subdirectory(bootloader)
@@ -94,8 +95,9 @@ set_target_properties(
         ${PROJECT_NAME}
         PROPERTIES
         OUTPUT_NAME ${ELF_FILENAME}
+        LINK_DEPENDS ${LINKER_SCRIPT}
         COMPILE_FLAGS "-mmcu=${MMCU} -I. -gdwarf-2 ${BOOTSTART_FLAG} -DF_CPU=${FREQ}UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums -Wall -Wno-unknown-pragmas -Wstrict-prototypes -Wundef -std=gnu99 -Wl,--gc-section"
-        LINK_FLAGS "-mmcu=${MMCU} -I. -gdwarf-2 -DF_CPU=${FREQ}UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums -Wall -Wno-unknown-pragmas -Wstrict-prototypes -Wundef -std=gnu99 -Wundef -MD -MP -MF .dep/main.elf.d --output ${ELF_FILE} -Wl,-lc,--entry=main"
+        LINK_FLAGS "-mmcu=${MMCU} -I. -gdwarf-2 -DF_CPU=${FREQ}UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums -Wall -Wno-unknown-pragmas -Wstrict-prototypes -Wundef -std=gnu99 -Wundef -MD -MP -MF .dep/main.elf.d --output ${ELF_FILE} -Wl,-lc,--entry=main -Wl,-Map=${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${PROJECT_NAME}.map -T ${LINKER_SCRIPT}"
 )
 
 add_custom_command(
