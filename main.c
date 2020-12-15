@@ -108,7 +108,7 @@ int main(void) {
 					case 11:
 						cm_res.dlc = 3;
 						cm_res.data[1] = (switch_node_id >> 8) & 0x01;
-						cm_res.data[2] = (switch_node_id) & 0x01;
+						cm_res.data[2] = (switch_node_id) & 0xff;
 						CAN_put_msg(&cm_res);
 						break;
 					case 12:
@@ -119,7 +119,7 @@ int main(void) {
 					case 13:
 						cm_res.dlc = 3;
 						cm_res.data[1] = (power_switch_node_id >> 8) & 0x01;
-						cm_res.data[2] = (power_switch_node_id) & 0x01;
+						cm_res.data[2] = (power_switch_node_id) & 0xff;
 						CAN_put_msg(&cm_res);
 						break;
 				}
@@ -145,7 +145,7 @@ int main(void) {
 						
 						cm_res.dlc = 3;
 						cm_res.data[1] = (switch_node_id >> 8) & 0x01;
-						cm_res.data[2] = (switch_node_id) & 0x01;
+						cm_res.data[2] = (switch_node_id) & 0xff;
 						CAN_put_msg(&cm_res);
 						break;
 					case 12:
@@ -154,12 +154,13 @@ int main(void) {
 						cm_res.dlc = 2;
 						cm_res.data[1] = number_of_antennas;
 						CAN_put_msg(&cm_res);
+						break;
 					case 13:
                         set_power_switch_id(((cm_res.data[1] << 8) | cm_res.data[0]) & ((1<<H9MSG_DESTINATION_ID_BIT_LENGTH) - 1));
 						
 						cm_res.dlc = 3;
 						cm_res.data[1] = (power_switch_node_id >> 8) & 0x01;
-						cm_res.data[2] = (power_switch_node_id) & 0x01;
+						cm_res.data[2] = (power_switch_node_id) & 0xff;
 						CAN_put_msg(&cm_res);
 						break;
 				}
